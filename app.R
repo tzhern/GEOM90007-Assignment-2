@@ -1,6 +1,9 @@
 #####################
 # INSTALL LIBRARIES #
 #####################
+if(!require(waiter)) install.packages('waiter')
+if(!require(fresh)) install.packages('fresh')
+if(!require(DT)) install.packages('DT')
 if(!require(dplyr)) install.packages("dplyr")
 if(!require(leaflet)) install.packages("leaflet")
 if(!require(plotly)) install.packages("plotly")
@@ -8,12 +11,14 @@ if(!require(ggplot2)) install.packages("ggplot2")
 if(!require(highcharter)) install.packages("highcharter")
 if(!require(shiny)) install.packages("shiny")
 if(!require(shinydashboard)) install.packages("shinydashboard")
-if(!require(shinydashboardPlus)) install.packages("shinydashboardPlus")
 if(!require(dashboardthemes)) install.packages("dashboardthemes")
 
 ###################
 #  LOAD LIBRARIES #
 ###################
+library(DT)
+library(waiter)
+library(fresh)
 library(dplyr)
 library(leaflet)
 library(plotly)
