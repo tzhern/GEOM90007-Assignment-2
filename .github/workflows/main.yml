@@ -12,6 +12,13 @@ jobs:
         run: |
           install.packages(c("shiny", "rsconnect"), type = "binary")
         shell: Rscript {0}
+      - name: Install dependencies
+        run: |
+            remotes::install_deps(dependencies = TRUE)
+            remotes::install_cran("rcmdcheck")
+            remotes::install_cran("devtools")
+            devtools::install()
+        shell: Rscript {0}
       - name: Push to shiny.io
         run: |
           Rscript -e "rsconnect::setAccountInfo(name='ltn3hf-zhi0hern0tom', token=${{secrets.SHINYAPPS_TOKEN}}, secret=${{secrets.SHINYAPPS_SECRET}})"
