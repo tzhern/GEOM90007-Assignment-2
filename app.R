@@ -26,7 +26,6 @@ library(ggplot2)
 library(highcharter)
 library(shiny)
 library(shinydashboard)
-library(shinydashboardPlus)
 library(dashboardthemes)
 
 ###################
