@@ -59,6 +59,7 @@ header$children[[2]]$children[[1]] = tags$a(tags$img(src='https://thumbs.dreamst
 
 sidebar = dashboardSidebar(
   sidebarMenu(
+    id="nav",
     menuItem(
       "Dashboard", 
       tabName = "dashboard", 
@@ -84,7 +85,6 @@ sidebar = dashboardSidebar(
     )
   ) 
 )
-data
 
 type.choices = c(
   "Race" = "race",
@@ -146,6 +146,9 @@ body = dashboardBody(
     # Interactive Map tab
     tabItem(
       tabName="map",
+      tags$head(
+        includeScript("gomap.js")
+      ),
       leafletOutput("map", height="660px"),
       tags$style("
                 #controls {
@@ -164,8 +167,7 @@ body = dashboardBody(
                   transition-delay: 0;
                 }
                        "),
-      
-      # Shiny versions prior to 0.11 should use class = "modal" instead.
+    
       absolutePanel(id = "controls", class = "panel panel-default", fixed = TRUE,
                     draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
                     width = 400, height = "auto",
@@ -174,9 +176,6 @@ body = dashboardBody(
                     valueBoxOutput("vboxmap", width="100%"),
                     selectInput("type", label="Type", choices = type.choices, selected="race"),
                     plotlyOutput('plot_cat', height=200)
-                    #selectInput("size", "Size", vars, selected = "adultpop"),
-                    #plotOutput("histCentile", height = 200),
-                    #plotOutput("scatterCollegeIncome", height = 250)
       )
     ),
     # Data Explorer Tab
@@ -485,11 +484,13 @@ server = function(input, output, session) {
   # Plot map circle using selected parameters
   observe({
     result = filteredDataMap()
-    r1 = result %>% count(lat, lon, city, state)
-    r1$popup = paste0('<b>Location: </b>', r1$lat,', ', r1$lon, '<br>',
-                      '<b>City</b>: ', r1$city, '<br>',
+    r1 = result
+    r1$popup = paste0('<b>Location: </b>', r1$latitude,', ', r1$longitude, '<br>',
+                      '<b>Name</b>: ', r1$name, '<br>',
+                      '<b>Gender</b>: ', r1$gender, '<br>',
+                      '<b>Age</b>: ', r1$age, '<br>',
                       '<b>State</b>: ', r1$state, '<br>',
-                      '<b>#Fatal</b>: ', r1$n)
+                      '<b>City</b>: ', r1$city, '<br>')
     
     if (input$type == "race"){
       pal = pal.race
@@ -504,9 +505,9 @@ server = function(input, output, session) {
           clearShapes() %>%
           clearControls() %>%
           addCircleMarkers(data = r1,
-                           lat = ~lat, 
-                           lng = ~lon,
-                           radius= ~n / (max(r1$n) - min(r1$n)) * 5,
+                           lat = ~latitude, 
+                           lng = ~longitude,
+                           radius= 1.5,
                            color = pal(col_values),
                            stroke = FALSE, fillOpacity = 0.4, 
                            opacity = 0.3,
@@ -536,15 +537,46 @@ server = function(input, output, session) {
       clearShapes() %>%
       clearControls() %>%
       addCircleMarkers(data = r1,
-                       lat = ~lat, 
-                       lng = ~lon,
-                       radius= ~n / (max(r1$n) - min(r1$n)) * 5,
+                       lat = ~latitude, 
+                       lng = ~longitude,
                        color = pal(col_data_fil),
+                       radius = 1.5,
                        stroke = FALSE, 
                        fillOpacity = 0.4, 
                        opacity = 0.3,
                        popup=~popup) %>%
       addLegend(position="bottomleft", pal = pal, values=col_values)
+  })
+  
+  showIDPopup = function(lat, lng, id) {
+    result = data[data$id == id,]
+    r1 = result
+    r1$popup = paste0('<b>Location: </b>', r1$latitude,', ', r1$longitude, '<br>',
+                      '<b>Name</b>: ', r1$name, '<br>',
+                      '<b>Gender</b>: ', r1$gender, '<br>',
+                      '<b>Age</b>: ', r1$age, '<br>',
+                      '<b>State</b>: ', r1$state, '<br>',
+                      '<b>City</b>: ', r1$city, '<br>')
+    
+    leafletProxy("map", data = result) %>%
+      addPopups(lng, lat, r1$popup)
+  }
+  
+  observe({
+    if (is.null(input$goto))
+      return()
+    isolate({
+      dist = 0.5
+      lat = input$goto$lat
+      lng = input$goto$lng
+      id = input$goto$id
+      leafletProxy("map") %>% 
+        clearPopups() %>%
+        fitBounds(lng - dist, lat - dist, lng + dist, lat + dist)
+      showIDPopup(lat, lng, id)
+      newtab =  switch(input$nav, "dataexplorer" = "map")
+      updateTabItems(session, "nav", newtab)
+    })
   })
   
   output$datatable <- DT::renderDataTable({
@@ -570,7 +602,9 @@ server = function(input, output, session) {
       rename(Flee = flee) %>%
       rename("Body Camera" = body_camera) %>%
       rename(Latitude = latitude) %>%
-      rename(Longitude = longitude) 
+      rename(Longitude = longitude) %>%
+      mutate(Action = paste('<a class="go-map" href="" data-lat="', Latitude, '" data-long="', Longitude,'" data-id="', ID, '"><i class="fa fa-crosshairs"></i></a>', sep=""))
+      action = DT::dataTableAjax(session, df, outputId = "datatable") 
     
     # Show dataframe
     DT::datatable(df, 
@@ -590,9 +624,12 @@ server = function(input, output, session) {
                                     ) 
                                    ), 
                     lengthMenu = list( c(10, 50, 100, -1), c(10, 50, 100, "All")), 
-                    pageLength = 10
-                  )
+                    pageLength = 10,
+                    ajax = list(url = action)
+                  ), 
+                  escape = FALSE
     )
+    
     
   })
 }
