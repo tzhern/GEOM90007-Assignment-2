@@ -8,6 +8,8 @@ if(!require(ggplot2)) install.packages("ggplot2")
 if(!require(highcharter)) install.packages("highcharter")
 if(!require(shiny)) install.packages("shiny")
 if(!require(shinydashboard)) install.packages("shinydashboard")
+if(!require(shinydashboardPlus)) install.packages("shinydashboardPlus")
+if(!require(dashboardthemes)) install.packages("dashboardthemes")
 
 ###################
 #  LOAD LIBRARIES #
@@ -19,6 +21,8 @@ library(ggplot2)
 library(highcharter)
 library(shiny)
 library(shinydashboard)
+library(shinydashboardPlus)
+library(dashboardthemes)
 
 ###################
 # DATA PROCESSING #
@@ -80,6 +84,11 @@ sidebar = dashboardSidebar(
       menuItem(
         selectInput("year", "Select Year", choices = c('All', sort(unique(data$year), decreasing = T)), selected="All")
       )
+    ),menuItem(
+      "Setting",
+      tabName = "setting",
+      icon = icon("gear"),
+      radioButtons("displaymode", "Display Mode", choices = c('Light Mode' = 'grey_light', 'Dark Mode' = 'grey_dark'), selected="grey_light")
     ),menuItem( 
       "FAQs", tabName = 'faqs', icon = icon('question')
     )
@@ -95,6 +104,7 @@ type.choices = c(
 )
 
 body = dashboardBody(
+  uiOutput("myTheme"),
   tabItems(
     # Dashboard tab
     tabItem(
@@ -103,42 +113,45 @@ body = dashboardBody(
         column(valueBoxOutput("vbox", width=13), width=12, align="center")
       ),
       fluidRow(
+        column(highchartOutput('fatalmapoverview'), width=12)
+      ),
+      fluidRow(
         h2( "Historical Police Fatal Shootings Overview", align = 'center')
       ),fluidRow(
         column( 
           width = 12,
-          h4("Fatal by Year", align = 'center'), 
+          h4("Fatalities by Year", align = 'center'), 
           highchartOutput('fatalbyyearlinechart')
         )
       ),
       fluidRow(
         column( 
           width = 6,
-          h4("Fatal by Gender", align = 'center'), 
+          h4("Fatalities by Gender", align = 'center'), 
           highchartOutput('fatalbygenderchart')
         ),
         column( 
           width = 6,
-          h4("Fatal by Race", align = 'center'), 
+          h4("Fatalities by Race", align = 'center'), 
           highchartOutput('fatalbyracechart')
         )
       ),
       fluidRow(
         column( 
           width = 12,
-          h4("Age and race", align = 'center'), 
+          h4("Age and Race", align = 'center'), 
           highchartOutput('ageandracechart')
         )
       ),
       fluidRow(
         column( 
           width = 6,
-          h4("Fatal by Threat Level", align = 'center'), 
+          h4("Fatalities by Threat Level", align = 'center'), 
           highchartOutput('fatalbythreatlevelchart')
         ),
         column( 
           width = 6,
-          h4("Fatal by Arm", align = 'center'), 
+          h4("Fatalities by Arm Type", align = 'center'), 
           highchartOutput('fatalbyarmedchart')
         )
       )
@@ -230,6 +243,20 @@ body = dashboardBody(
       fluidRow(
         column( 
           width = 12,
+          h2("How is the dashboard built?", align = 'left'),
+          tags$p("All elements including charts and maps are generated using R packages including", 
+                 tags$a(href="https://jkunst.com/highcharter/", "highcharter"), 
+                 ",",
+                 tags$a(href="https://ggplot2.tidyverse.org", "ggplot"), 
+                 ",",
+                 tags$a(href="https://plotly.com/r/", "plotly"),
+                 "and",
+                 tags$a(href="https://rstudio.github.io/leaflet/", "leaflet"))
+        )
+      ),
+      fluidRow(
+        column( 
+          width = 12,
           h2("Who should I contact if I have any sugguestions?", align = 'left'),
           tags$p("Your suggestions, feedback, complaints or compliments are highly valued and will guide me to improve the dashboard continuously. Please send an email to ", 
                  tags$a( href="mailto:ztom@student.unimelb.edu.au",
@@ -243,7 +270,10 @@ body = dashboardBody(
   )
 ) 
 
-ui = dashboardPage(header, sidebar, body, skin = "black")
+ui = dashboardPage(header, 
+                   sidebar, 
+                   body, 
+                   skin = "black")
 
 
 ################
@@ -259,6 +289,11 @@ server = function(input, output, session) {
   
   values = reactiveValues()
   
+  #Update theme
+  output$myTheme = renderUI({
+    shinyDashboardThemes(theme = input$displaymode)
+    })
+  
   # Update data with selected parameters
   filteredData = reactive({
     result = data
@@ -268,10 +303,33 @@ server = function(input, output, session) {
     result
   })
   
+  # Plot map (dashboard tab)
+  output$fatalmapoverview = renderHighchart({
+    hcmap(
+      "countries/us/us-all",
+      data = filteredData() %>% count(state_abbr),
+      value = "n",
+      joinBy = c("hc-a2", "state_abbr"),
+      name = "Total Fatalities",
+      dataLabels = list(enabled = TRUE, format = "{point.name}"),
+      borderColor = "#FAFAFA",
+      borderWidth = 0.1,
+      tooltip = list(
+        valueSuffix = " Persons"
+      )
+    ) %>%
+    hc_colorAxis(minColor = "#FFFFFF", maxColor = "#BE2528")
+  })
+  
   # Plot fatal by year line chart
   output$fatalbyyearlinechart = renderHighchart({
-    highchart() %>%
-      hc_add_series(name="Total Fatal", data %>% count(year), type = "line", hcaes(x = year, y = n), marker = list(symbol = 'circle'), color='black')%>%
+    if (input$displaymode == "grey_light"){
+      theme = hc_theme_538()
+    } else{
+      theme = hc_theme_db()
+    }
+    hc = highchart() %>%
+      hc_add_series(name="Total Fatalities", data %>% count(year), type = "line", hcaes(x = year, y = n), marker = list(symbol = 'circle'))%>%
       hc_plotOptions(column = list(
         dataLabels = list(enabled = F),
         #stacking = "normal",
@@ -283,13 +341,21 @@ server = function(input, output, session) {
                                        " {series.name}: {point.y}"),
                  headerFormat = '<span style="font-size: 13px">Year {point.key}</span>'
       ) %>%
-      hc_legend( layout = 'vertical', align = 'left', verticalAlign = 'top', floating = T, x = 100, y = 000 ) %>%
+      hc_legend( layout = 'vertical', align = 'left', verticalAlign = 'top', floating = T, x = 100, y = 000) %>%
       hc_xAxis(title = list(text = "Year")) %>%
-      hc_yAxis(title = list(text = "Number of Fatal"))
+      hc_yAxis(title = list(text = "Number of Fatalities")) %>%
+      hc_add_theme(theme)
+      
+      
   })
   
   # Plot fatal by gender chart
   output$fatalbygenderchart = renderHighchart({
+    if (input$displaymode == "grey_light"){
+      theme = hc_theme_538()
+    } else{
+      theme = hc_theme_db()
+    }
     (data %>% count(year, gender)) %>% 
       hchart('column', hcaes(x = 'year', y = 'n', group = 'gender')) %>%
       hc_plotOptions(column = list(
@@ -306,16 +372,21 @@ server = function(input, output, session) {
       hc_legend( layout = 'vertical', align = 'right', verticalAlign = 'top', floating = T) %>%
       hc_colors(c("red", "blue")) %>%
       hc_xAxis(title = list(text = "Year")) %>%
-      hc_yAxis(title = list(text = "Number of Fatal"))
+      hc_yAxis(title = list(text = "Number of Fatalities"))%>%
+      hc_add_theme(theme)
   })
   
   # Plot age and race chart
   output$ageandracechart = renderHighchart({
+    if (input$displaymode == "grey_light"){
+      theme = hc_theme_538()
+    } else{
+      theme = hc_theme_db()
+    }
     (data %>% group_by(year, race) %>% summarise_at(vars(age), list(age_ave = mean))) %>% 
       hchart('column', hcaes(x = 'year', y = 'age_ave', group = 'race')) %>%
       hc_plotOptions(column = list(
         dataLabels = list(enabled = F),
-        #stacking = "normal",
         enableMouseTracking = T ) 
       )%>%
       hc_tooltip(table = TRUE,
@@ -326,11 +397,17 @@ server = function(input, output, session) {
       ) %>%
       hc_legend( layout = 'vertical', align = 'right', verticalAlign = 'top', floating = T) %>%
       hc_xAxis(title = list(text = "Year")) %>%
-      hc_yAxis(title = list(text = "Average Age"))
+      hc_yAxis(title = list(text = "Average Age")) %>%
+      hc_add_theme(theme)
   })
   
   # Plot fatal by race
   output$fatalbyracechart = renderHighchart({
+    if (input$displaymode == "grey_light"){
+      theme = hc_theme_538()
+    } else{
+      theme = hc_theme_db()
+    }
     highchart() %>%
       hc_add_series(name="Asian", filter(data, race == "Asian") %>% count(year), type = "line", hcaes(x = year, y = n), marker = list(symbol = 'circle'))%>%
       hc_add_series(name="Black", filter(data, race == "Black") %>% count(year), type = "line", hcaes(x = year, y = n), marker = list(symbol = 'circle'))%>%
@@ -352,11 +429,17 @@ server = function(input, output, session) {
       ) %>%
       hc_legend( layout = 'vertical', align = 'right', verticalAlign = 'top', floating = T) %>%
       hc_xAxis(title = list(text = "Year")) %>%
-      hc_yAxis(title = list(text = "Number of Fatal"))
+      hc_yAxis(title = list(text = "Number of Fatalities"))%>%
+      hc_add_theme(theme)
   })
   
   # Plot fatal by threat level
   output$fatalbythreatlevelchart = renderHighchart({
+    if (input$displaymode == "grey_light"){
+      theme = hc_theme_538()
+    } else{
+      theme = hc_theme_db()
+    }
     (data %>% count(year, threat_level)) %>% 
       hchart('column', hcaes(x = 'year', y = 'n', group = 'threat_level')) %>%
       hc_plotOptions(column = list(
@@ -372,11 +455,17 @@ server = function(input, output, session) {
       ) %>%
       hc_legend( layout = 'vertical', align = 'right', verticalAlign = 'top', floating = T) %>%
       hc_xAxis(title = list(text = "Year")) %>%
-      hc_yAxis(title = list(text = "Number of Fatal"))
+      hc_yAxis(title = list(text = "Number of Fatalities"))%>%
+      hc_add_theme(theme)
   })
   
   # Plot fatal by arm chart
   output$fatalbyarmedchart  = renderHighchart({
+    if (input$displaymode == "grey_light"){
+      theme = hc_theme_538()
+    } else{
+      theme = hc_theme_db()
+    }
     (data %>% count(year, armed)) %>% 
       hchart('column', hcaes(x = 'year', y = 'n', group = 'armed')) %>%
       hc_plotOptions(column = list(
@@ -392,12 +481,12 @@ server = function(input, output, session) {
       ) %>%
       hc_legend( layout = 'vertical', align = 'right', verticalAlign = 'top', floating = T) %>%
       hc_xAxis(title = list(text = "Year")) %>%
-      hc_yAxis(title = list(text = "Number of Fatal"))
+      hc_yAxis(title = list(text = "Number of Fatalities"))%>%
+      hc_add_theme(theme)
   })
   
   # Plot bar plot in the floating explorer
   output$plot_cat <- renderPlotly({
-    
     if (input$type == "race"){
       result = filteredData() %>% count(race)
       xvar = result$race
@@ -426,7 +515,7 @@ server = function(input, output, session) {
       cvalues = c("Shot" = "#FF0000", "Shot and Tasered" = "#00FFFF")
     }
     
-    p = ggplot(data=result, aes(x=reorder(xvar, -n), y=n, fill=xvar, text = paste("Number of Fatal: ", n))) + geom_bar(stat='identity', width=0.8) + labs(x=xlab, y="Number of People") + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) + scale_fill_manual(values = cvalues) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
+    p = ggplot(data=result, aes(x=reorder(xvar, -n), y=n, fill=xvar, text = paste("Number of Fatalities: ", n))) + geom_bar(stat='identity', width=0.8) + labs(x=xlab, y="Number of People") + scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) + scale_fill_manual(values = cvalues) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
     p = p + theme(text=element_text(size=8))
     values$loaded = TRUE
     ggplotly(p, source='plot_cat', tooltip = c("text")) %>% 
@@ -457,7 +546,7 @@ server = function(input, output, session) {
   
   # Plot value box (show total fatal)
   output$vbox = renderValueBox({
-    valueBox("TOTAL FATAL", 
+    valueBox("TOTAL Fatalities", 
              value=nrow(filteredData()), 
              icon = icon("skull-crossbones"), 
              color="red")
@@ -466,7 +555,7 @@ server = function(input, output, session) {
   # Plot value box in the floating explorer (shot total fatal)
   output$vboxmap = renderValueBox({
     valueBox(
-      "TOTAL FATAL", 
+      "TOTAL FATALITIES", 
       value=tags$p(nrow(filteredData()), style = "font-size: 80%;"),
       icon = icon("skull-crossbones"), 
       color="red")
@@ -475,9 +564,13 @@ server = function(input, output, session) {
   
   # Render empty map
   output$map = renderLeaflet({
+    if (input$displaymode == 'grey_light'){
+      map.provider = providers$CartoDB
+    } else{
+      map.provider = providers$CartoDB.DarkMatter
+    }
     leaflet() %>%
-      addProviderTiles(providers$CartoDB.DarkMatter) %>%
-      addTiles() %>%
+      addProviderTiles(map.provider) %>%
       setView(lng = -93.85, lat = 37.45, zoom = 4)
   })
   
@@ -497,9 +590,13 @@ server = function(input, output, session) {
       col_values = unique(data$race)
       col_data_fil = result$race
       output$map = renderLeaflet({
+        if (input$displaymode == 'grey_light'){
+          map.provider = providers$CartoDB
+        } else{
+          map.provider = providers$CartoDB.DarkMatter
+        }
         leaflet() %>%
-          addProviderTiles(providers$CartoDB.DarkMatter) %>%
-          addTiles() %>%
+          addProviderTiles(map.provider) %>%
           setView(lng = -93.85, lat = 37.45, zoom = 4) %>%
           clearMarkers() %>%
           clearShapes() %>%
@@ -509,8 +606,8 @@ server = function(input, output, session) {
                            lng = ~longitude,
                            radius= 1.5,
                            color = pal(col_values),
-                           stroke = FALSE, fillOpacity = 0.4, 
-                           opacity = 0.3,
+                           stroke = FALSE, fillOpacity = 0.6, 
+                           opacity = 0.6,
                            popup = ~popup) %>%
           addLegend("bottomleft", pal = pal, values=col_values)
       })
@@ -542,8 +639,8 @@ server = function(input, output, session) {
                        color = pal(col_data_fil),
                        radius = 1.5,
                        stroke = FALSE, 
-                       fillOpacity = 0.4, 
-                       opacity = 0.3,
+                       fillOpacity = 0.6, 
+                       opacity = 0.6,
                        popup=~popup) %>%
       addLegend(position="bottomleft", pal = pal, values=col_values)
   })
