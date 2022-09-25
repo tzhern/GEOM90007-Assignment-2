@@ -5,10 +5,10 @@ account: ltn3hf-zhi0hern0tom
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 7108138
-bundleId: 6335369
+bundleId: 6335450
 url: https://ltn3hf-zhi0hern0tom.shinyapps.io/Police-Fatal-Shootings/
-when: 1664092843.85682
-lastSyncTime: 1664092843.85685
+when: 1664095643.97937
+lastSyncTime: 1664095643.97939
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: LICENSE|README.md|report.docx
+ignoredFiles: ~$report.docx|LICENSE|README.md|report.docx

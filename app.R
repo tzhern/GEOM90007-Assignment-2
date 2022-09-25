@@ -98,7 +98,7 @@ sidebar = dashboardSidebar(
 type.choices = c(
   "Race" = "race",
   "Manner of Death" = "manner_of_death",
-  "Arm" = "armed",
+  "Arm Type" = "armed",
   "Gender" = "gender",
   "Threat Level" = "threat_level"
 )
@@ -195,7 +195,7 @@ body = dashboardBody(
     tabItem(
       tabName = 'dataexplorer',
       fluidRow(
-        column(12, h1("Data Explorer by States and Cities"))
+        column(12, h1("Police Fatal Shooting Data Explorer"))
       ),
       fluidRow(
         column(3,
@@ -223,9 +223,13 @@ body = dashboardBody(
           width = 12,
           h2("What are the data sources?", align = 'left'),
           tags$p("The dataset is provided by", 
-                 tags$a( href="https://github.com/washingtonpost/data-police-shootings",
+                 tags$a(href="https://github.com/washingtonpost/data-police-shootings",
                          "https://github.com/washingtonpost/data-police-shootings"),
-                 ". The Washington Post's database contains records of every fatal shooting in the United States by a police officer in the line of duty since Jan. 1, 2015."
+                 ". The Washington Post's database contains records of every fatal shooting in the United States by a police officer in the line of duty since Jan. 1, 2015. The data is publised under", 
+                 tags$a(href="https://creativecommons.org/licenses/by-nc-sa/4.0/",
+                        "Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) license"),
+                 
+                 "."
           )
         )
       ),
@@ -236,7 +240,7 @@ body = dashboardBody(
           tags$p("The dataset was processed by several steps including: ", 
                  tags$li("Dropping instances with NaN values."),
                  tags$li("Re-categorise several columns for better performance."),
-                 tags$li("Ommiting records in 2022 since the data is not complete.")
+                 tags$li("Omitting records in 2022 since the data is not complete.")
           )
         )
       ),
@@ -546,7 +550,7 @@ server = function(input, output, session) {
   
   # Plot value box (show total fatal)
   output$vbox = renderValueBox({
-    valueBox("TOTAL Fatalities", 
+    valueBox("TOTAL FATALITIES", 
              value=nrow(filteredData()), 
              icon = icon("skull-crossbones"), 
              color="red")
